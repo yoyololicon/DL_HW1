@@ -2,9 +2,13 @@ import numpy as np
 import argparse
 import matplotlib.pyplot as plt
 from sklearn.metrics import log_loss
+from itertools import combinations
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OneHotEncoder
+from sklearn.decomposition import PCA
+from scipy.stats.stats import pearsonr
+from prettytable import PrettyTable
 
 parser = argparse.ArgumentParser(description='DNN regression')
 parser.add_argument('infile', help='csv file name')
@@ -22,8 +26,7 @@ def relu(a):
     return np.maximum(0., a)
 
 def relu_dif(r):
-    r2 = np.round(r + 0.5)
-    return np.minimum(1, r2)
+    return np.minimum(1, np.round(r + 0.5))
 
 def RMSE(y, t):
     return np.sqrt(np.mean((y - t) ** 2))
@@ -41,11 +44,7 @@ def predict(x, weights, activation='relu'):
         h = np.row_stack((act(w[i].dot(h)), np.ones(test_len)))
     return ow.dot(h)
 
-def training(x, t, depth, epochs, batch_size, test_size, node_n, eta, activation='relu'):
-    train_x, test_x, train_t, test_t = train_test_split(x, t, test_size=test_size, shuffle=True)
-    train_x, test_x = train_x.T, test_x.T
-
-    # DNN
+def training(train_x, test_x, train_t, test_t, depth, epochs, batch_size, node_n, eta, f_names, activation='relu'):
     train_size = train_x.shape[1]
     iw = np.random.rand(node_n, train_x.shape[0]+1)
     ow = np.random.rand(node_n + 1)
@@ -54,6 +53,14 @@ def training(x, t, depth, epochs, batch_size, test_size, node_n, eta, activation
     train_error = []
     test_error = []
     every = 1000
+
+    framework = str(train_x.shape[0]) + "-"
+    for i in range(depth-2):
+        framework += str(node_n) + "-"
+    framework += "1"
+    table = PrettyTable(["Network architecture", framework])
+    table.add_row(["Activation", activation])
+    table.add_row(["Selected features", f_names])
 
     if activation == 'sigmoid':
         act = sigmoid
@@ -102,33 +109,79 @@ def training(x, t, depth, epochs, batch_size, test_size, node_n, eta, activation
         if e % every == 0:
             print "Epoch", e, ": train loss", train_error[-1], "; test loss", test_error[-1]
 
-    plt.plot(test_y, label='y')
-    plt.plot(test_t, label='t')
-    plt.legend()
-    plt.show()
+    table.add_row(["Training RMS Error", train_error[-1]])
+    table.add_row(["Test RMS Error", test_error[-1]])
+    print table
 
     plt.plot(train_error, label='train loss')
     plt.plot(test_error, label='test loss')
     plt.legend()
+    plt.title("Learning curve with " + str(train_x.shape[0]) + " dimension inputs")
+    plt.xlabel("# of epoch")
+    plt.ylabel("square loss")
     plt.show()
+
+    train_y = predict(train_x, (iw, w, ow), activation=activation)
+    plt.plot(train_y, label='y')
+    plt.plot(train_t, label='t')
+    plt.legend()
+    plt.title("Heat load for training dataset with " + str(train_x.shape[0]) + " dimension inputs")
+    plt.xlabel("# of case")
+    plt.ylabel("Heat load")
+    plt.show()
+
+    plt.plot(test_y, label='y')
+    plt.plot(test_t, label='t')
+    plt.legend()
+    plt.title("Heat load for test dataset with " + str(train_x.shape[0]) + " dimension inputs")
+    plt.xlabel("# of case")
+    plt.ylabel("Heat load")
+    plt.show()
+
+
+
+def feature_corr(data):
+    feature_names = list(data.columns.values)
+    feature_names.remove(target_name)
+    feature_names.remove(excluded)
+    y = data[target_name].values
+
+    features = []
+    for name in feature_names:
+        x = data[name].values
+        corr = pearsonr(x, y)
+        features.append((name, abs(corr[0])))
+    features.sort(key=lambda x: x[1], reverse=True)
+    return features
 
 if __name__ == '__main__':
     args = parser.parse_args()
     data = pd.read_csv(args.infile)
+    #shuffle data at beginning
+    data = data.sample(frac=1).reset_index(drop=True)
 
-    x = []
+    feature_sorted = feature_corr(data)
+    t = data[target_name].values
+
+    feature_data = []
     encoders = []
-    for name in data.columns:
-        if name == target_name:
-            t = data[name].values
-        elif name in excluded:
-            continue
-        elif name in categorical:
-            encoders.append(OneHotEncoder(sparse=False))
-            x.append(encoders[-1].fit_transform(data[name].values.reshape(-1, 1)))
+    test_size = 192
+    f_names = ""
+    for i in range(len(feature_sorted)):
+        name = feature_sorted[i][0]
+        if 0 < i < len(feature_sorted) - 1:
+            f_names += ", "
+        f_names += name
+        if name in categorical:
+            encoders.append((name, OneHotEncoder(sparse=False)))
+            feature_data.append(encoders[-1][1].fit_transform(data[name].values.reshape(-1, 1)))
         else:
-            x.append(data[name].values)
+            feature_data.append(data[feature_sorted[i][0]].values)
+        x = np.column_stack(feature_data)
+        print x.shape
 
-    x = np.column_stack(x)
+        train_x, test_x, train_t, test_t = train_test_split(x, t, test_size=test_size, shuffle=False)
+        train_x, test_x = train_x.T, test_x.T
 
-    training(x, t, depth=5, epochs=100000, batch_size=64, test_size=192, node_n=2, eta=1e-8, activation='relu')
+        training(train_x, test_x, train_t, test_t, depth=5, epochs=100000, batch_size=64, node_n=3, eta=1e-8,
+                 f_names=f_names, activation='relu')
