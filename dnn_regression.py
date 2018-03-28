@@ -1,11 +1,11 @@
 import numpy as np
 import argparse
 import matplotlib.pyplot as plt
-from sklearn.metrics import log_loss
+
 from itertools import combinations
 import pandas as pd
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import OneHotEncoder, normalize
 from sklearn.decomposition import PCA
 from scipy.stats.stats import pearsonr
 from prettytable import PrettyTable
@@ -46,9 +46,9 @@ def predict(x, weights, activation='relu'):
 
 def training(train_x, test_x, train_t, test_t, depth, epochs, batch_size, node_n, eta, f_names, activation='relu'):
     train_size = train_x.shape[1]
-    iw = np.random.rand(node_n, train_x.shape[0]+1)
-    ow = np.random.rand(node_n + 1)
-    w = np.random.rand(depth - 3, node_n, node_n + 1)
+    iw = np.random.randn(node_n, train_x.shape[0]+1)
+    ow = np.random.randn(node_n + 1)
+    w = np.random.randn(depth - 3, node_n, node_n + 1)
     h = np.full((depth - 2, node_n + 1, batch_size), 1.)
     train_error = []
     test_error = []
@@ -104,13 +104,12 @@ def training(train_x, test_x, train_t, test_t, depth, epochs, batch_size, node_n
                     w[k - 2] -= eta * dw
 
         train_error.append(np.sqrt(batch_error_sum / train_size))
-        test_y = predict(test_x, (iw, w, ow), activation=activation)
-        test_error.append(RMSE(test_y, test_t))
         if e % every == 0:
-            print "Epoch", e, ": train loss", train_error[-1], "; test loss", test_error[-1]
+            print "Epoch", e, ": train loss", train_error[-1]
 
+    test_y = predict(test_x, (iw, w, ow), activation=activation)
     table.add_row(["Training RMS Error", train_error[-1]])
-    table.add_row(["Test RMS Error", test_error[-1]])
+    table.add_row(["Test RMS Error", RMSE(test_y, test_t)])
     print table
 
     plt.plot(train_error, label='train loss')
@@ -138,6 +137,7 @@ def training(train_x, test_x, train_t, test_t, depth, epochs, batch_size, node_n
     plt.ylabel("Heat load")
     plt.show()
 
+    return train_error
 
 
 def feature_corr(data):
@@ -178,10 +178,10 @@ if __name__ == '__main__':
         else:
             feature_data.append(data[feature_sorted[i][0]].values)
         x = np.column_stack(feature_data)
-        print x.shape
+        x = normalize(x, axis=0)
 
         train_x, test_x, train_t, test_t = train_test_split(x, t, test_size=test_size, shuffle=False)
         train_x, test_x = train_x.T, test_x.T
 
-        training(train_x, test_x, train_t, test_t, depth=5, epochs=100000, batch_size=64, node_n=3, eta=1e-8,
-                 f_names=f_names, activation='relu')
+        training(train_x, test_x, train_t, test_t, depth=5, epochs=30000, batch_size=192, node_n=3, eta=1e-4,
+                 f_names=f_names, activation='sigmoid')
