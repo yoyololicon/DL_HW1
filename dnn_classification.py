@@ -23,7 +23,7 @@ if __name__ == '__main__':
     model = []
 
     model.append(Layer(20, activation='sigmoid', LR=LR))
-    model.append(Layer(10, activation='sigmoid', LR=LR))
+    model.append(Layer(10, activation='tanh', LR=LR))
     model.append(Layer(5, activation='sigmoid', LR=LR))
     model.append(Layer(output_dim, activation='softmax', LR=LR))
 
