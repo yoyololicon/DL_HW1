@@ -1,6 +1,6 @@
 import argparse
 from scipy.io import loadmat
-from nn_layer import Layer, model_configure, predict
+from nn_layer import *
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
@@ -16,10 +16,10 @@ if __name__ == '__main__':
     output_dim = train_t.shape[0]
     train_size = train_x.shape[1]
 
-    LR = 1e-3
-    batch_size = 200
-    epochs = 300
-    every = 50
+    LR = 0.1
+    batch_size = 400
+    epochs = 600
+    every = 100
 
     model = []
 
@@ -36,17 +36,9 @@ if __name__ == '__main__':
             h = train_x[:, i:i + batch_size]
             batch_t = train_t[:, i:i + batch_size]
 
-            # forward
-            for layer in model:
-                h = layer.forward_prop(h)
-
-            gradient = h - batch_t
-
-            model.reverse()
-            #backward
-            for layer in model:
-                gradient = layer.backword_prop(gradient)
-            model.reverse()
+            batch_y = predict(model, h)
+            gradient = batch_y - batch_t
+            back_propogation(model, gradient)
 
         if e % every == 0:
             #plot distribution

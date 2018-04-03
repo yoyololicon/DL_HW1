@@ -20,7 +20,7 @@ def tanh(a):
     return np.tanh(a)
 
 def tanh_delta(a):
-    return 1 - tanh(a) ** 2
+    return 1 - np.tanh(a) ** 2
 
 def linear(a):
     return a
@@ -61,7 +61,7 @@ class Layer:
     def backword_prop(self, g):
         if not self.skip_act_delta:
             g = self.act_delta(self.w.dot(self.h)) * g
-        dw = g.dot(self.h.T)
+        dw = g.dot(self.h.T)/self.h.shape[1]
         if len(g.shape) > 1:
             g = self.w[:, :-1].T.dot(g)
         else:
@@ -75,17 +75,33 @@ class Layer:
     def get_output_shape(self):
         return self.output_shape
 
+    def reset_weight(self):
+        self.w = np.random.randn(self.output_shape, self.input_shape + 1)
+
 def model_configure(model, input_shape):
     shape = input_shape
-    decription = str(input_shape)
+    description = str(input_shape)
     for layer in model:
         layer.set_shape(shape)
         shape = layer.get_output_shape()
-        decription = decription +  " - " + str(shape)
-    return model, decription
+        description = description +  " - " + str(shape)
+    return model, description
 
 def predict(model, x):
     h = x
     for layer in model:
         h = layer.forward_prop(h)
     return h
+
+def back_propogation(model, gradient):
+    g = gradient
+    for layer in reversed(model):
+        g = layer.backword_prop(g)
+    return g
+
+def initialize(model):
+    for layer in model:
+        layer.reset_weight()
+
+def RMSE(y, t):
+    return np.sqrt(np.mean((y - t) ** 2))
