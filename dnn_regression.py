@@ -107,7 +107,7 @@ if __name__ == '__main__':
     noise_test = np.random.randn(test_x.shape[1])*0.25
     noise_train = np.random.randn(train_x.shape[1])*0.25
 
-    print "Add random noise to each non-category features in test data;"
+    print "Add random noise to each non-categorical features in test data;"
     print "then evaluate the RMS error on the trained model."
     table = PrettyTable(["Noisy feature", "Test RMS error"])
 
@@ -120,7 +120,7 @@ if __name__ == '__main__':
 
     print table
 
-    print "Add random noise to each non-category features in training data;"
+    print "Add random noise to each non-categorical features in training data;"
     print "then re-trained the model."
 
     for i, name in enumerate(feature_names):
